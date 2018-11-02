@@ -4,6 +4,8 @@ Created on Thu Nov  1 07:55:49 2018
 
 @author: jmajor
 """
+import os
+import numpy as np
 
 import tkinter as tk
 from tkinter import ttk
@@ -17,24 +19,44 @@ from matplotlib.figure import Figure
 import matplotlib.animation as animation
 from matplotlib import style
 
+import NI_RTD_DAQ_CLASS as DAQ
+daq = DAQ.DAQ()
+daq.set_specific_channels([2])
 
 LARGE_FONT = ('Verdanna', 12)
 style.use("ggplot")
 
+import time
+
+start = time.time()
 
 def animate(i):
-    pullData = open("data.txt","r").read()
+
+    temp = str(round(daq.read_specific_channels()[0],3))
+
+    s = temp +','+str(round(time.time() - start,3))+'\n'
+
+    with open('daqdata_2.txt', 'a') as f:
+        if os.stat('daqdata_2.txt').st_size == 0:
+            f.write(s)
+        else:
+            f.write(s)
+
+    with open("daqdata_2.txt","r") as f:
+        pullData = f.read()
     dataList = pullData.split('\n')
     xList = []
     yList = []
     for eachLine in dataList:
         if len(eachLine)  > 1:
-            x,y = eachLine.split(',')
-            xList.append(int(x))
-            yList.append(int(y))
+
+            y,x = eachLine.split(',')
+
+            xList.append(float(x))
+            yList.append(float(y))
 
     a.clear()
-    a.plot(xList,yList)
+    a.plot(yList)
 
 f = Figure(figsize=(5,5), dpi = 100)
 

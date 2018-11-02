@@ -10,9 +10,6 @@ This is a class module for the NI USB DAQ with eight 3 wire RTD's
 import nidaqmx
 from nidaqmx.constants import ExcitationSource, TemperatureUnits, ResistanceConfiguration
 
-def path():
-    fjskla;fjsaklkf jkljfsal
-
 
 class DAQ(object):
 
