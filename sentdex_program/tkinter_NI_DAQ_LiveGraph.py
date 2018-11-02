@@ -30,6 +30,13 @@ import time
 
 start = time.time()
 
+
+
+f = Figure(figsize=(5,5), dpi = 100)
+
+a = f.add_subplot(211)
+a2 = f.add_subplot(212)
+
 def animate(i):
 
     temp = str(round(daq.read_specific_channels()[0],3))
@@ -56,13 +63,9 @@ def animate(i):
             yList.append(float(y))
 
     a.clear()
-    a.plot(yList)
-
-f = Figure(figsize=(5,5), dpi = 100)
-
-a = f.add_subplot(111)
-
-
+    a2.clear()
+    a2.plot(xList[-20:],yList[-20:])
+    a.plot(xList,yList)
 
 class SeaofBTCapp(tk.Tk): #inhearits tk.TK class attributes
 
