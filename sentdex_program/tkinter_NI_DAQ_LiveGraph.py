@@ -16,11 +16,12 @@ from matplotlib.figure import Figure
 import matplotlib.animation as animation
 from matplotlib import style
 import time
+import pandas as pd
 
 #import and set daq channels
 import NI_RTD_DAQ_CLASS as DAQ
 daq = DAQ.DAQ()
-daq.set_specific_channels([2])
+daq.set_specific_channels([1,2,3,4])
 
 #styling for the gui font and matplotlib background
 LARGE_FONT = ('Verdanna', 12)
@@ -35,34 +36,34 @@ f = Figure(figsize=(5,5), dpi = 100) #creates the matplotlib figure
 ax1 = f.add_subplot(211) #adds the top plot (full time and partial time plots)
 ax2 = f.add_subplot(212) #creates the zoomed in plot
 
+os.remove('daqdata_2.txt')
+
+
 
 #funtion to create the animated plots. gets called in a loop
 def animate(i):
 
-    temp = str(round(daq.read_specific_channels()[0],3)) #acquire temp from daq
-
-    s = str(round(time.time() - x_start,3))+','+temp +'\n' #formats the x/y date to save into text file
+    temp = str(daq.read_specific_channels()) #acquire temp from daq
+    temp = temp.lstrip('[').rstrip(']').split(',')
+    s = str(round(time.time() - x_start,3))+','+temp[0]+',' + temp[1]+','+temp[2]+','+temp[3] +'\n' #formats the x/y date to save into text file
 
     #saves the data to a txt file
     with open('daqdata_2.txt', 'a') as f:
         if os.stat('daqdata_2.txt').st_size == 0:
+            f.write('Time,One,Two,Three,Four\n')
             f.write(s)
         else:
             f.write(s)
 
     #reads the data from the text file
-    with open("daqdata_2.txt","r") as f:
-        pullData = f.read()
-    dataList = pullData.split('\n')
-    xList = []
-    yList = []
+    df = pd.read_table("daqdata_2.txt", delimiter=',')
+    xList = list(df['Time'])
+    y1List = list(df['One'])
+    y2List = list(df['Two'])
+    y3List = list(df['Three'])
+    y4List = list(df['Four'])
 
-    #reads the x/y data and makes a list out of them
-    for eachLine in dataList:
-        if len(eachLine)  > 1:
-            x,y = eachLine.split(',')
-            xList.append(float(x))
-            yList.append(float(y))
+
 
     #clears the plots so we don't get multiple layers of plots
     ax1.clear()
@@ -70,14 +71,21 @@ def animate(i):
 
     #gives the ability to zoom in on the first graph
     if app.length == 0:
-        ax1.plot(xList,yList, label='Full time plot')
+        ax1.plot(xList,y1List, label='Chan 1')
+        ax1.plot(xList,y2List, label='Chan 2')
+        ax1.plot(xList,y3List, label='Chan 3')
+        ax1.plot(xList,y4List, label='Chan 4')
         ax1.set_title("Temp plot")
 
     else:
-        ax1.plot(xList[-100:],yList[-100:], label='Partial time plot')
+        ax1.plot(xList[-100:],y1List[-100:], label='Chan 1')
+        ax1.plot(xList[-100:],y2List[-100:], label='Chan 2')
+        ax1.plot(xList[-100:],y3List[-100:], label='Chan 3')
+        ax1.plot(xList[-100:],y4List[-100:], label='Chan 4')
+        ax1.set_title("Temp plot zoomed")
 
-    ax1.plot(xList[-30:], [i +3 for i in yList[-30:]],label='STD data') #shows the length of the data being analized for standard deviation
-    ax2.plot(xList[-30:],yList[-30:], label= 'Last 20 seconds') #plots a close up of the temperature data
+    ax1.plot(xList[-30:], [i +3 for i in y1List[-30:]],label='STD data') #shows the length of the data being analized for standard deviation
+    ax2.plot(xList[-30:],y1List[-30:], label= 'Last 20 seconds') #plots a close up of the temperature data
     ax2.set_title("Temp plot zoomed")
     ax1.legend()
     ax2.legend()
