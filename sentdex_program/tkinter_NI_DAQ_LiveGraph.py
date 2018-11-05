@@ -32,12 +32,14 @@ style.use("ggplot")
 x_start = time.time() #used to create the x-axis values
 
 
-f = Figure(figsize=(5,5), dpi = 100) #creates the matplotlib figure
+f = Figure(figsize=(15,7), dpi = 100) #creates the matplotlib figure
 ax1 = f.add_subplot(211) #adds the top plot (full time and partial time plots)
 ax2 = f.add_subplot(212) #creates the zoomed in plot
 
-os.remove('daqdata_2.txt')
-
+try:
+    os.remove('daqdata_2.txt')
+except:
+    pass
 
 
 #funtion to create the animated plots. gets called in a loop
@@ -87,7 +89,7 @@ def animate(i):
     ax1.plot(xList[-30:], [i +3 for i in y1List[-30:]],label='STD data') #shows the length of the data being analized for standard deviation
     ax2.plot(xList[-30:],y1List[-30:], label= 'Last 20 seconds') #plots a close up of the temperature data
     ax2.set_title("Temp plot zoomed")
-    ax1.legend()
+    ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax2.legend()
 
 
@@ -102,7 +104,7 @@ class SeaofBTCapp(tk.Tk): #inhearits tk.TK class attributes
 
 
         tk.Tk.__init__(self, *args, **kwargs) #initializes tk.TK class
-        container = tk.Frame(self) #the window frame
+        container = tk.Frame(self,width=500, height=500) #the window frame
 
         container.pack(side = "top", fill = "both", expand = True)
 
@@ -115,7 +117,7 @@ class SeaofBTCapp(tk.Tk): #inhearits tk.TK class attributes
 
         self.frames[StartPage] = frame
 
-        frame.grid(row=0, column=0, sticky = "nsew")
+        frame.grid(row=5, column=2, sticky = "nsew")
 
 ###use this if you want multiple windows
 #        for F in (StartPage, None): #add new page classes here!!!!!!!!!!!!!!!
@@ -150,6 +152,10 @@ class StartPage(tk.Frame):
         label = ttk.Label(self, text = 'Graph Page', font = LARGE_FONT)
         label.pack(pady=10,padx=10)
 
+        button = ttk.Button(self, text = "Zoom graph 1", command = controller.click)
+
+        button.pack(side = tk.TOP)
+
         canvas = FigureCanvasTkAgg(f, self)
         #canvas.show()
         canvas.get_tk_widget().pack(side = tk.TOP, fill = tk.BOTH, expand = True)
@@ -158,9 +164,35 @@ class StartPage(tk.Frame):
         toolbar.update()
         canvas._tkcanvas.pack(side = tk.TOP, fill = tk.BOTH, expand = True)
 
-        button = ttk.Button(self, text = "Zoom graph 1", command = controller.click)
+        v = tk.StringVar(self, value='first text')
 
-        button.pack()
+        e = tk.Entry(self,textvariable=v)
+        e.pack(side = tk.TOP)
+        e.pack(side = tk.RIGHT)
+
+        e.focus_set()
+
+        def callback():
+            print(e.get())
+
+        b = ttk.Button(self, text="get", width=10, command=callback)
+        b.pack(side = tk.RIGHT)
+
+
+
+        v2 = tk.StringVar(self, value='second text')
+
+        e2 = tk.Entry(self,textvariable=v2)
+        e2.pack(side = tk.TOP)
+        e2.focus_set()
+
+        def callback():
+            print(e2.get())
+
+        b2 = ttk.Button(self, text="get", width=10, command=callback)
+        b2.pack(side = tk.TOP)
+
+
 
 
 app = SeaofBTCapp()

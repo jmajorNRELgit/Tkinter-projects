@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Nov  1 07:55:49 2018
-
-@author: jmajor
-"""
-
 ##imports
 import os
 import tkinter as tk
@@ -16,73 +9,14 @@ from matplotlib.figure import Figure
 import matplotlib.animation as animation
 from matplotlib import style
 import time
+import pandas as pd
+from PIL import ImageTk, Image
 
-#import and set daq channels
-import NI_RTD_DAQ_CLASS as DAQ
-daq = DAQ.DAQ()
-daq.set_specific_channels([2])
 
-#styling for the gui font and matplotlib background
 LARGE_FONT = ('Verdanna', 12)
-style.use("ggplot")
 
-
-
-x_start = time.time() #used to create the x-axis values
-
-
-f = Figure(figsize=(5,5), dpi = 100) #creates the matplotlib figure
+f = Figure(figsize=(10,7), dpi = 100) #creates the matplotlib figure
 ax1 = f.add_subplot(211) #adds the top plot (full time and partial time plots)
-ax2 = f.add_subplot(212) #creates the zoomed in plot
-
-
-#funtion to create the animated plots. gets called in a loop
-def animate(i):
-
-    temp = str(round(daq.read_specific_channels()[0],3)) #acquire temp from daq
-
-    s = str(round(time.time() - x_start,3))+','+temp +'\n' #formats the x/y date to save into text file
-
-    #saves the data to a txt file
-    with open('daqdata_2.txt', 'a') as f:
-        if os.stat('daqdata_2.txt').st_size == 0:
-            f.write(s)
-        else:
-            f.write(s)
-
-    #reads the data from the text file
-    with open("daqdata_2.txt","r") as f:
-        pullData = f.read()
-    dataList = pullData.split('\n')
-    xList = []
-    yList = []
-
-    #reads the x/y data and makes a list out of them
-    for eachLine in dataList:
-        if len(eachLine)  > 1:
-            x,y = eachLine.split(',')
-            xList.append(float(x))
-            yList.append(float(y))
-
-    #clears the plots so we don't get multiple layers of plots
-    ax1.clear()
-    ax2.clear()
-
-    #gives the ability to zoom in on the first graph
-    if app.length == 0:
-        ax1.plot(xList,yList, label='Full time plot')
-        ax1.set_title("Temp plot")
-
-    else:
-        ax1.plot(xList[-100:],yList[-100:], label='Partial time plot')
-
-    ax1.plot(xList[-30:], [i +3 for i in yList[-30:]],label='STD data') #shows the length of the data being analized for standard deviation
-    ax2.plot(xList[-30:],yList[-30:], label= 'Last 20 seconds') #plots a close up of the temperature data
-    ax2.set_title("Temp plot zoomed")
-    ax1.legend()
-    ax2.legend()
-
-
 
 class SeaofBTCapp(tk.Tk): #inhearits tk.TK class attributes
 
@@ -94,12 +28,13 @@ class SeaofBTCapp(tk.Tk): #inhearits tk.TK class attributes
 
 
         tk.Tk.__init__(self, *args, **kwargs) #initializes tk.TK class
-        container = tk.Frame(self) #the window frame
+        container = tk.Frame(self, width=500, height=500) #the window frame
 
-        container.pack(side = "top", fill = "both", expand = True)
+        container.grid()
 
-        container.grid_rowconfigure(0, weight = 1)
-        container.grid_columnconfigure(0, weight = 1)
+
+
+
 
         self.frames = {} #dictionary to hold the different frames when multiple windows are used
 
@@ -107,7 +42,7 @@ class SeaofBTCapp(tk.Tk): #inhearits tk.TK class attributes
 
         self.frames[StartPage] = frame
 
-        frame.grid(row=0, column=0, sticky = "nsew")
+        frame.grid(sticky = "nsew")
 
 ###use this if you want multiple windows
 #        for F in (StartPage, None): #add new page classes here!!!!!!!!!!!!!!!
@@ -134,27 +69,49 @@ class SeaofBTCapp(tk.Tk): #inhearits tk.TK class attributes
             self.length = 0
             print(self.length)
 
-#this is the main page that is called initially
+
 class StartPage(tk.Frame):
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent) #parent is going to be the main class SeaofBTCapp
         label = ttk.Label(self, text = 'Graph Page', font = LARGE_FONT)
-        label.pack(pady=10,padx=10)
+        label.grid(row = 0, column = 0)
 
         canvas = FigureCanvasTkAgg(f, self)
         #canvas.show()
-        canvas.get_tk_widget().pack(side = tk.TOP, fill = tk.BOTH, expand = True)
+        canvas.get_tk_widget().grid(row = 2, column = 0)
 
-        toolbar = NavigationToolbar2Tk(canvas, self)
-        toolbar.update()
-        canvas._tkcanvas.pack(side = tk.TOP, fill = tk.BOTH, expand = True)
 
-        button = ttk.Button(self, text = "Zoom graph 1", command = controller.click)
+        v = tk.StringVar(self, value='default text')
 
-        button.pack()
+        e = tk.Entry(self,textvariable=v)
+        e.grid(row = 1, column = 1)
+        e.focus_set()
+
+        def callback():
+            print(e.get())
+
+        b = ttk.Button(self, text="get", width=10, command=callback)
+        b.grid(row = 2, column = 1, sticky = 'N')
+
+
+
+
+        v2 = tk.StringVar(self, value='default text')
+
+        e2 = tk.Entry(self,textvariable=v2)
+        e2.grid(row = 1, column = 2)
+        e2.focus_set()
+
+        def callback():
+            print(e2.get())
+
+        b2 = ttk.Button(self, text="get", width=10, command=callback)
+        b2.grid(row = 2, column = 2, sticky = 'N')
+
+
 
 
 app = SeaofBTCapp()
-ani = animation.FuncAnimation(f,animate, interval = 1000)
+#ani = animation.FuncAnimation(f,animate, interval = 1000)
 app.mainloop()
