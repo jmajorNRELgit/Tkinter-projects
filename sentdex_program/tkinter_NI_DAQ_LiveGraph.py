@@ -15,6 +15,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
 from matplotlib import style
+import matplotlib.pyplot as plt
 import time
 import pandas as pd
 import numpy as np
@@ -44,6 +45,13 @@ except:
 
 standard_deviation = []
 
+coefficients = pd.read_csv('C:/Users/jmajor/Desktop/github/Tkinter-projects/sentdex_program/coefficient_list.csv', index_col = 0)
+
+chan1_fit = np.poly1d(list(coefficients.iloc[:,0]))
+chan2_fit = np.poly1d(list(coefficients.iloc[:,1]))
+chan3_fit = np.poly1d(list(coefficients.iloc[:,2]))
+chan4_fit = np.poly1d(list(coefficients.iloc[:,3]))
+
 
 #counter = 0
 
@@ -53,7 +61,7 @@ def animate(i):
 
     temp = str(daq.read_specific_channels()) #acquire temp from daq
     temp = temp.lstrip('[').rstrip(']').split(',')
-    s = str(round(time.time() - x_start,3))+','+temp[0]+',' + temp[1]+','+temp[2]+','+temp[3] +'\n' #formats the x/y date to save into text file
+    s = str(round(time.time() - x_start,3))+','+str(chan1_fit(float(temp[0])))+',' + str(chan2_fit(float(temp[1])))+','+str(chan3_fit(float(temp[2])))+','+str(chan4_fit(float(temp[3]))) +'\n' #formats the x/y date to save into text file
 
     #saves the data to a txt file
     with open('daqdata_2.txt', 'a') as f:
@@ -103,11 +111,11 @@ def animate(i):
        ax2.plot(xList[-50:],standard_deviation[-50:], label= 'Standard deviation average')
        ax2.set_title("STD plot zoomed")
 
-
-
+    ax1.set_ylabel('Temperature')
+    ax2.set_ylabel('STD')
+    ax2.set_xlabel('Time')
     ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
 
 
 class TIM_stand(tk.Tk): #inhearits tk.TK class attributes
@@ -195,20 +203,19 @@ class StartPage(tk.Frame):
         e2.pack(side = tk.TOP)
         e2.focus_set()
 
-        def callback():
+        def save_file():
+            file_time = time.strftime("%b %d %Y, time_%H_%M_%S")
             file = e2.get()
-            print(file)
+            print('{0} {1}.csv'.format(file, file_time))
 
             df = pd.read_table("daqdata_2.txt", delimiter=',')
 
             data = df.iloc[-30:, :]
-            file_time = time.strftime("%b %d %Y, time = %H_%M_%S")
+
             data.to_csv('{0} {1}.csv'.format(file, file_time))
 
-            print(list(df['One'][-5:]))
 
-
-        b2 = ttk.Button(self, text="get", width=10, command=callback)
+        b2 = ttk.Button(self, text="Save file", width=10, command=save_file)
         b2.pack(side = tk.TOP)
 
 
