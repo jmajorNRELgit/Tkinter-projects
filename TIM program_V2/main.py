@@ -3,13 +3,11 @@
 import os
 import tkinter as tk
 from tkinter import ttk
-import matplotlib
-matplotlib.use("TkAgg")
+import tk_tools
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
 from matplotlib import style
-import matplotlib.pyplot as plt
 import time
 import pandas as pd
 import numpy as np
@@ -25,7 +23,7 @@ style.use("ggplot")
 
 
 
-
+#Class to hold miscellaneous data
 class misc:
     def __init__(self):
         try:
@@ -41,9 +39,6 @@ class misc:
         self.chan2_fit = np.poly1d(list(coefficients.iloc[:,1]))
         self.chan3_fit = np.poly1d(list(coefficients.iloc[:,2]))
         self.chan4_fit = np.poly1d(list(coefficients.iloc[:,3]))
-
-
-#counter = 0
 
 
 #funtion to create the animated plots. gets called in a loop
@@ -94,7 +89,7 @@ def animate(i):
 
 
     if app.length2 == 0:
-        app.ax2.plot(xList,misc.standard_deviation, label= 'Standard deviation average')
+        app.ax2.plot(xList,misc.standard_deviation, label= 'Standard deviation')
         app.ax2.set_title("STD plot")
 
     else:
@@ -102,6 +97,7 @@ def animate(i):
        app.ax2.set_title("STD plot zoomed")
 
     app.ax1.set_ylabel('Temperature')
+    app.ax1.set_xlabel('Time')
     app.ax2.set_ylabel('STD')
     app.ax2.set_xlabel('Time')
     app.ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
@@ -144,27 +140,105 @@ class TIM(tk.Tk):
         label2.grid(row = 0, column = 0)
 
         canvas = FigureCanvasTkAgg(self.f, frame1)
-        canvas.get_tk_widget().grid(row = 1, column = 0)
+        canvas.get_tk_widget().grid(row = 2, column = 0)
+
+
+
+        std_label = tk.Label(self,fg="dark green")
+        std_label.grid(row = 3, column = 0)
+        self.counter_label(std_label)
+
+
+
 
     def button_frame(self):
 
-        frame2 = tk.Frame(self,width=100, height=200,bg = "BLACK", borderwidth=10)
+        frame2 = tk.Frame(self,width=100, height=200, borderwidth=10)
         frame2.grid(row=0, column = 1)
 
-        button = tk.Button(frame2, text = 'foo', command = self.click2)
-        button.grid(row=1, column = 0)
+        graph_one_zoom_button = ttk.Button(frame2, text = 'Zoom graph one', command = self.zoom_graph1)
+        graph_one_zoom_button.grid(row = 0, column = 0)
 
-        label = tk.Label(frame2, text = 'bar',bg = "RED")
-        label.grid(row = 0, column = 0)
+        graph_two_zoom_button = ttk.Button(frame2, text = 'Zoom graph two', command = self.zoom_graph2)
+        graph_two_zoom_button.grid(row = 0, column = 1)
+
+        spacer = ttk.Label(frame2, text = '' )
+        spacer.grid(row = 1, column = 0)
+
+        #button to save the rtd data
+        save_data_button = ttk.Button(frame2, text = 'Save data', command = self.save_file)
+        save_data_button.grid(row=2, column = 0)
+
+        #filename input field
+        text_field = tk.StringVar(frame2, value='Set filename')
+        self.text_box = tk.Entry(frame2,textvariable=text_field)
+        self.text_box.grid(row=2, column = 1)
+        self.text_box.focus_set()
+
+
+
+    def counter_label(self,label):
+
+
+            def count():
+                if len(misc.standard_deviation) == 0:
+                    counter = [0.00]
+
+                else:
+                    counter = misc.standard_deviation[-1:]
+                label.config(text= 'STD: ' + str(round(counter[0],4)))
+                label.after(1000, count)
+
+            count()
 
 
 
 
-    def click2(self):
-        print('foo')
+
+
+    #function to save the RTD data for the past 10 minutes. saves the date and time in the filename
+    def save_file(self):
+            file_time = time.strftime("%b %d %Y, time_%H_%M_%S")
+            file = self.text_box.get()
+            print('{0} {1}.csv'.format(file, file_time))
+
+            df = pd.read_table("daqdata_2.txt", delimiter=',')
+
+            #This loop looks at the Time column to determine where 10 minutes back starts with the data
+            c = 1
+            for i in df.iloc[::-1, 0]:
+                if df.iloc[-1, 0] - i > 600:
+                    break
+                c +=1
+
+            data = df.iloc[-c:, :]
+
+            data.to_csv('{0} {1}.csv'.format(file, file_time))
+
+    def zoom_graph1(self):
+        if self.length == 0:
+            self.length = 1
+        else:
+            self.length = 0
+
+    def zoom_graph2(self):
+        if self.length2 == 0:
+            self.length2 = 1
+        else:
+            self.length2 = 0
+
+
+
+
 
 misc = misc()
 app = TIM()
 ani = animation.FuncAnimation(app.f,animate, interval = 1000)
+
+
 app.mainloop()
+
+
+
+
 

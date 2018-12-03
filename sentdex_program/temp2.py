@@ -1,13 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Nov  6 08:49:43 2018
-
-@author: jmajor
-"""
-
-def gen():
-
-    x = [1,2,3,4,5,6]
-
-    yield x
-
+led = tk_tools.Led(frame2, size=50)
+        led.grid(row = 3, column = 1)
+        led.to_red()
+        led.to_green(on=True)
