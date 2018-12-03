@@ -89,7 +89,7 @@ def animate(i):
 
 
     if app.length2 == 0:
-        app.ax2.plot(xList,misc.standard_deviation, label= 'Standard deviation')
+        app.ax2.plot(xList,misc.standard_deviation, label= 'STD')
         app.ax2.set_title("STD plot")
 
     else:
@@ -145,10 +145,12 @@ class TIM(tk.Tk):
 
 
         std_label = tk.Label(self,fg="dark green")
-        std_label.grid(row = 3, column = 0)
+        std_label.grid(row = 3, column = 0, sticky = 'n')
         self.counter_label(std_label)
 
-
+        self.led = tk_tools.Led(frame1, size=50)
+        self.led.grid(row = 3, column = 0, sticky = 's')
+        self.change_led()
 
 
     def button_frame(self):
@@ -176,7 +178,7 @@ class TIM(tk.Tk):
         self.text_box.focus_set()
 
 
-
+    #Displays the standard deviation
     def counter_label(self,label):
 
 
@@ -191,8 +193,13 @@ class TIM(tk.Tk):
 
             count()
 
-
-
+    #changes the color of the standard deviation indicator
+    def change_led(self):
+        if len(misc.standard_deviation) != 0 and misc.standard_deviation[-1] > .008:
+            self.led.to_red()
+        else:
+            self.led.to_green()
+        self.after(1000, self.change_led)
 
 
 
