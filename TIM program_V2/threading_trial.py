@@ -15,15 +15,23 @@ import tkinter
 import threading
 import queue
 
+
+#import and set daq channels
+import NI_RTD_DAQ_CLASS as DAQ
+daq = DAQ.DAQ()
+daq.set_specific_channels([1,2,3,4])
+
+y = []
+
 y1list = []
-xList = []
+
 x_start = time.time() #used to create the x-axis values
 def animate(i):
 
     #clears the plots so we don't get multiple layers of plots
     client.gui.ax1.clear()
 
-    client.gui.ax1.plot(xList,y1list, label='Chan 1')
+    client.gui.ax1.plot(y, label='Chan 1')
     client.gui.ax1.set_title("Temp plot")
 
 
@@ -114,9 +122,9 @@ class ThreadedClient:
             # To simulate asynchronous I/O, we create a random number at
             # random intervals. Replace the following two lines with the real
             # thing.
-           xList.append(time.time() - x_start)
-           y1list.append(random.random()*5)
-           time.sleep(2)
+           temp = str(daq.read_specific_channels()) #acquire temp from daq
+           y.append(float(temp.split()[0].lstrip('[').rstrip(',')))
+
 
     def endApplication(self):
         self.running = 0
