@@ -26,15 +26,18 @@ style.use("ggplot")
 #Class to hold miscellaneous data
 class misc:
     def __init__(self):
+
+        #removes the old data log
         try:
             os.remove('daqdata_2.txt')
         except:
             pass
 
+
         self.standard_deviation = []
 
+        #reads the RTD calibration coefficients and creates the functions to fit the data
         coefficients = pd.read_csv('C:/Users/jmajor/Desktop/github/Tkinter-projects/sentdex_program/coefficient_list.csv', index_col = 0)
-
         self.chan1_fit = np.poly1d(list(coefficients.iloc[:,0]))
         self.chan2_fit = np.poly1d(list(coefficients.iloc[:,1]))
         self.chan3_fit = np.poly1d(list(coefficients.iloc[:,2]))
@@ -45,12 +48,12 @@ class misc:
 def animate(i):
 
     temp = str(daq.read_specific_channels()) #acquire temp from daq
-    temp = temp.lstrip('[').rstrip(']').split(',')
+    temp = temp.lstrip('[').rstrip(']').split(',') #clean up daq data
     s = str(round(time.time() - app.x_start,3))+','+str(misc.chan1_fit(float(temp[0])))+',' + str(misc.chan2_fit(float(temp[1])))+','+str(misc.chan3_fit(float(temp[2])))+','+str(misc.chan4_fit(float(temp[3]))) +'\n' #formats the x/y date to save into text file
 
     #saves the data to a txt file
     with open('daqdata_2.txt', 'a') as f:
-        if os.stat('daqdata_2.txt').st_size == 0:
+        if os.stat('daqdata_2.txt').st_size == 0: #if the data file is empty this adds the headers
             f.write('Time(s),One,Two,Three,Four\n')
             f.write(s)
         else:
@@ -71,7 +74,7 @@ def animate(i):
     app.ax2.clear()
 
     #gives the ability to zoom in on the first graph
-    if app.length == 0:
+    if app.zoom1 == 0:
         app.ax1.plot(xList,y1List, label='Chan 1')
         app.ax1.plot(xList,y2List, label='Chan 2')
         app.ax1.plot(xList,y3List, label='Chan 3')
@@ -84,11 +87,11 @@ def animate(i):
         app.ax1.plot(xList[-100:],y3List[-100:], label='Chan 3')
         app.ax1.plot(xList[-100:],y4List[-100:], label='Chan 4')
         app.ax1.set_title("Temp plot zoomed")
-    app.ax1.plot(xList[-30:], [i +3 for i in y1List[-30:]],label='STD data') #shows the length of the data being analized for standard deviation
+    app.ax1.plot(xList[-30:], [i +3 for i in y1List[-30:]],label='STD data') #shows the zoom1 of the data being analized for standard deviation
 
 
 
-    if app.length2 == 0:
+    if app.zoom2 == 0:
         app.ax2.plot(xList,misc.standard_deviation, label= 'STD')
         app.ax2.set_title("STD plot")
 
@@ -118,15 +121,11 @@ class TIM(tk.Tk):
     ax1 = f.add_subplot(211) #adds the top plot (full time and partial time plots)
     ax2 = f.add_subplot(212) #creates the zoomed in plot
 
-    length = 0 #class variable to control the zoom in funtionality of plot app.ax1
-    length2 = 0 #class variable to control the zoom in funtionality of plot app.ax1
+    zoom1 = 0 #class variable to control the zoom in funtionality of plot app.ax1
+    zoom2 = 0 #class variable to control the zoom in funtionality of plot app.ax1
 
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-
-        container = tk.Frame(self,width=500, height=400)
-
-        container.grid()
 
         self.graph_frame()
         self.button_frame()
@@ -136,21 +135,23 @@ class TIM(tk.Tk):
         frame1 = tk.Frame(self,width=100, height=200)
         frame1.grid(row=0,column=0)
 
-        label2 = tk.Label(frame1, text = 'Graph',font=("Helvetica", 20))
-        label2.grid(row = 0, column = 0)
+#        label2 = tk.Label(frame1, text = 'Graph',font=("Helvetica", 20))
+#        label2.grid(row = 0, column = 0)
 
         canvas = FigureCanvasTkAgg(self.f, frame1)
         canvas.get_tk_widget().grid(row = 2, column = 0)
 
 
+        #a numeric display of the standard deviation
+        std_display = tk.Label(self,fg="dark green")
+        std_display.grid(row = 3, column = 0, sticky = 'n')
+        self.counter_label(std_display)
 
-        std_label = tk.Label(self,fg="dark green")
-        std_label.grid(row = 3, column = 0, sticky = 'n')
-        self.counter_label(std_label)
+        #an indicator that shows green when the standard deviation in low enough
+        led = tk_tools.Led(frame1, size=50)
+        led.grid(row = 3, column = 0, sticky = 's')
+        self.change_led(led)
 
-        self.led = tk_tools.Led(frame1, size=50)
-        self.led.grid(row = 3, column = 0, sticky = 's')
-        self.change_led()
 
 
     def button_frame(self):
@@ -194,14 +195,15 @@ class TIM(tk.Tk):
             count()
 
     #changes the color of the standard deviation indicator
-    def change_led(self):
-        if len(misc.standard_deviation) != 0 and misc.standard_deviation[-1] > .008:
-            self.led.to_red()
-        else:
-            self.led.to_green()
-        self.after(1000, self.change_led)
+    def change_led(self, led):
+        def change():
+            if len(misc.standard_deviation) != 0 and misc.standard_deviation[-1] > .008:
+                led.to_red()
+            else:
+                led.to_green()
+            self.after(1000, change)
 
-
+        change()
 
     #function to save the RTD data for the past 10 minutes. saves the date and time in the filename
     def save_file(self):
@@ -223,16 +225,16 @@ class TIM(tk.Tk):
             data.to_csv('{0} {1}.csv'.format(file, file_time))
 
     def zoom_graph1(self):
-        if self.length == 0:
-            self.length = 1
+        if self.zoom1 == 0:
+            self.zoom1 = 1
         else:
-            self.length = 0
+            self.zoom1 = 0
 
     def zoom_graph2(self):
-        if self.length2 == 0:
-            self.length2 = 1
+        if self.zoom2 == 0:
+            self.zoom2 = 1
         else:
-            self.length2 = 0
+            self.zoom2 = 0
 
 
 

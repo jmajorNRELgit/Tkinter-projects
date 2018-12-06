@@ -8,7 +8,9 @@ class GuiPart:
     def __init__(self, master, queue, endCommand):
         self.queue = queue
         # Set up the GUI
-        console = tkinter.Button(master, text='Done', command=endCommand)
+        container = tkinter.Frame(master ,width=500, height=400)
+        container.pack()
+        console = tkinter.Button(container, text='Done', command=endCommand)
         console.pack(  )
         # Add more GUI stuff here depending on your specific needs
 
