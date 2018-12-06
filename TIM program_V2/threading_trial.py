@@ -13,7 +13,6 @@ import numpy as np
 import random
 import tkinter
 import threading
-import queue
 
 
 #import and set daq channels
@@ -21,9 +20,8 @@ import NI_RTD_DAQ_CLASS as DAQ
 daq = DAQ.DAQ()
 daq.set_specific_channels([1,2,3,4])
 
-y = []
 
-y1list = []
+data = []
 
 x_start = time.time() #used to create the x-axis values
 def animate(i):
@@ -31,7 +29,7 @@ def animate(i):
     #clears the plots so we don't get multiple layers of plots
     client.gui.ax1.clear()
 
-    client.gui.ax1.plot(y, label='Chan 1')
+    client.gui.ax1.plot([item[0] for item in data],[item[1] for item in data], label='Chan 1')
     client.gui.ax1.set_title("Temp plot")
 
 
@@ -40,35 +38,30 @@ def animate(i):
 
 class GuiPart:
 
-
     f = Figure(figsize=(10,5), dpi = 100) #creates the matplotlib figure
     ax1 = f.add_subplot(111) #adds the top plot (full time and partial time plots
 
-    def __init__(self, master, queue, endCommand):
-        self.queue = queue
+    def __init__(self, master):
+
 
         self.graph_frame(master)
 
+
+
     def graph_frame(self,master):
-        frame1 = tk.Frame(master,width=100, height=200)
-        frame1.grid(row=0,column=0)
+        frame1 = tk.Frame(master)
+        frame1.pack()
 
         canvas = FigureCanvasTkAgg(self.f, frame1)
-        canvas.get_tk_widget().grid(row = 2, column = 0)
+        canvas.get_tk_widget().pack()
 
-    def processIncoming(self):
-        """Handle all messages currently in the queue, if any."""
-        while self.queue.qsize(  ):
-            try:
-                msg = self.queue.get(0)
-                # Check contents of message and do whatever is needed. As a
-                # simple test, print it (in real life, you would
-                # suitably update the GUI's display in a richer fashion).
-                print(msg)
-            except queue.Empty:
-                # just on general principles, although we don't
-                # expect this branch to be taken in this case
-                pass
+        button = tk.Button(master,text = 'Print "foo"', command = self.com)
+        button.pack()
+
+    def com(self):
+        print('foo')
+
+
 
 class ThreadedClient:
     """
@@ -84,33 +77,15 @@ class ThreadedClient:
         """
         self.master = master
 
-        # Create the queue
-        self.queue = queue.Queue(  )
-
         # Set up the GUI part
-        self.gui = GuiPart(master, self.queue, self.endApplication)
+        self.gui = GuiPart(master)
 
         # Set up the thread to do asynchronous I/O
         # More threads can also be created and used, if necessary
-        self.running = 1
+
         self.thread1 = threading.Thread(target=self.workerThread1)
         self.thread1.start(  )
 
-        # Start the periodic call in the GUI to check if the queue contains
-        # anything
-        self.periodicCall(  )
-
-    def periodicCall(self):
-        """
-        Check every 200 ms if there is something new in the queue.
-        """
-        self.gui.processIncoming(  )
-        if not self.running:
-            # This is the brutal stop of the system. You may want to do
-            # some cleanup before actually shutting it down.
-            import sys
-            sys.exit(1)
-        self.master.after(200, self.periodicCall)
 
     def workerThread1(self):
         """
@@ -118,16 +93,14 @@ class ThreadedClient:
         a 'select(  )'. One important thing to remember is that the thread has
         to yield control pretty regularly, by select or otherwise.
         """
-        while self.running:
+        while True:
             # To simulate asynchronous I/O, we create a random number at
             # random intervals. Replace the following two lines with the real
             # thing.
+
            temp = str(daq.read_specific_channels()) #acquire temp from daq
-           y.append(float(temp.split()[0].lstrip('[').rstrip(',')))
-
-
-    def endApplication(self):
-        self.running = 0
+           dat = [time.time() - x_start, float(temp.split()[0].lstrip('[').rstrip(',')) ]
+           data.append(dat)
 
 rand = random.Random(  )
 root = tkinter.Tk(  )
@@ -137,3 +110,6 @@ root = tkinter.Tk(  )
 client = ThreadedClient(root)
 ani = animation.FuncAnimation(client.gui.f,animate, interval = 1000)
 root.mainloop(  )
+
+
+print('DAQ closed')
