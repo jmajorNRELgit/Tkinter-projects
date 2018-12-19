@@ -89,8 +89,9 @@ class DAQ(object):
     def close_NI_RTD_DAQ(self):
         '''Closes the task'''
 
+        self.task.stop()
         self.task.close()
-
+        self.task2.stop()
         self.task2.close()
 
 

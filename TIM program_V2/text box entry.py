@@ -14,9 +14,6 @@ class TIM(tk.Tk):
 
         container.pack()
 
-        button = tk.Button(self,text = 'Foo')
-        button.pack()
-
         text = ttk.Entry(self)
         text.insert(0, 'Default')
         text.pack()

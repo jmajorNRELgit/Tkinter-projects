@@ -12,12 +12,11 @@ import time
 import pandas as pd
 import numpy as np
 import threading
-import numpy as np
 
-##import and set daq channels
-#import NI_RTD_DAQ_CLASS as DAQ
-#daq = DAQ.DAQ()
-#daq.set_specific_channels([1,2,3,4])
+#import and set daq channels
+import NI_RTD_DAQ_CLASS as DAQ
+daq = DAQ.DAQ()
+daq.set_specific_channels([1,2,3,4])
 
 #styling for the gui font and matplotlib background
 LARGE_FONT = ('Verdanna', 12)
@@ -31,17 +30,17 @@ class misc:
 
         #removes the old data log
         try:
-            os.remove('daqdata_2.txt')
+            os.remove('DAQ_data.txt')
         except:
             pass
 
 
-        with open('daqdata_2.txt', 'a') as f:
-            if os.stat('daqdata_2.txt').st_size == 0: #if the data file is empty this adds the headers
-                f.write('Time(s),One,Two,Three,Four\n')
+        with open('DAQ_data.txt', 'a') as f:
+            if os.stat('DAQ_data.txt').st_size == 0: #if the data file is empty this adds the headers
+                f.write('Time(s),STD,One,Two,Three,Four\n')
 
 
-        self.standard_deviation = []
+        self.standard_deviation = [] #stores data for the STD indicator
 
         #reads the RTD calibration coefficients and creates the functions to fit the data
         coefficients = pd.read_csv('C:/Users/jmajor/Desktop/github/Tkinter-projects/sentdex_program/coefficient_list.csv', index_col = 0)
@@ -50,21 +49,23 @@ class misc:
         self.chan3_fit = np.poly1d(list(coefficients.iloc[:,2]))
         self.chan4_fit = np.poly1d(list(coefficients.iloc[:,3]))
 
+        self.fit_list = (self.chan1_fit, self.chan2_fit, self.chan3_fit, self.chan4_fit)
+
 
 #funtion to create the animated plots. gets called in a loop
 def animate(i):
 
-
     #reads the data from the text file
-    df = pd.read_table("daqdata_2.txt", delimiter=',')
+    df = pd.read_table("DAQ_data.txt", delimiter=',')
     xList = list(df['Time(s)'])
     y1List = list(df['One'])
     y2List = list(df['Two'])
     y3List = list(df['Three'])
     y4List = list(df['Four'])
+    STD = list(df['STD'])
 
-    if len(xList) > 0:
-        misc.standard_deviation.append(np.mean([np.std(y1List[-20:]),np.std(y2List[-20:]),np.std(y3List[-20:]),np.std(y4List[-20:])]))
+    if len(STD) > 0:
+        misc.standard_deviation.append(STD[-1])
 
     #clears the plots so we don't get multiple layers of plots
     app.ax1.clear()
@@ -84,16 +85,24 @@ def animate(i):
         app.ax1.plot(xList[-100:],y3List[-100:], label='Chan 3')
         app.ax1.plot(xList[-100:],y4List[-100:], label='Chan 4')
         app.ax1.set_title("Temp plot zoomed")
-    app.ax1.plot(xList[-30:], [i +3 for i in y1List[-30:]],label='STD data') #shows the zoom1 of the data being analized for standard deviation
+
+    #Finds the index of the row starting 10 minutes ago
+    c = 1
+    for i in df.iloc[::-1, 0]:
+        if df.iloc[-1, 0] - i > 600:
+            break
+        c +=1
+
+    app.ax1.plot(xList[-c:], [i +3 for i in y1List[-c:]],label='Saved data') #shows the zoom1 of the data being analized for standard deviation
 
 
 
     if app.zoom2 == 0:
-        app.ax2.plot(misc.standard_deviation, label= 'STD')
+        app.ax2.plot(xList, STD, label= 'STD')
         app.ax2.set_title("STD plot")
 
     else:
-       app.ax2.plot(xList[-50:],misc.standard_deviation[-50:], label= 'Standard deviation \n average')
+       app.ax2.plot(xList[-50:],STD[-50:], label= 'Standard deviation \n average')
        app.ax2.set_title("STD plot zoomed")
 
     app.ax1.set_ylabel('Temperature')
@@ -135,43 +144,36 @@ class TIM(tk.Tk):
 
     def workerThread1(self):
         """
-        This is where we handle the asynchronous I/O. For example, it may be
-        a 'select(  )'. One important thing to remember is that the thread has
-        to yield control pretty regularly, by select or otherwise.
+        This is where we handle the asynchronous I/O.
         """
+        temp_list = []
+
         while True:
-            # To simulate asynchronous I/O, we create a random number at
-            # random intervals. Replace the following two lines with the real
-            # thing.
 
-#            temp = str(daq.read_specific_channels()) #acquire temp from daq
-#            temp = temp.lstrip('[').rstrip(']').split(',') #clean up daq data
-#            s = str(round(time.time() - app.x_start,3))+','+str(misc.chan1_fit(float(temp[0])))+',' + str(misc.chan2_fit(float(temp[1])))+','+str(misc.chan3_fit(float(temp[2])))+','+str(misc.chan4_fit(float(temp[3]))) +'\n' #formats the x/y date to save into text file
+           temp = daq.read_specific_channels() #acquire temp from daq
 
-            time.sleep(3)
-            s = [round(time.time() - self.x_start,3), np.random.rand()+1, np.random.rand()+2, np.random.rand()+3, np.random.rand()+4 ]
+           #fits temp data to RTD calibration curve
+           for i in range(len(misc.fit_list)):
+                temp[i] = round(misc.fit_list[i](temp[i]),3)
 
-#            pattern = "%.3f"
-#            s = [pattern % i for i in s]
+           temp_list.append(temp)
+           standard_deviation = np.mean([np.std(temp_list[-20:]),np.std(temp_list[-20:]),np.std(temp_list[-20:]),np.std(temp_list[-20:])])
 
-            s = str(s).lstrip('[').rstrip(']') +'\n'
+           temp_data = str(round(time.time() - app.x_start,3)) + ','+ str(round(standard_deviation,4)) + ',' + ','.join(list(map(str,temp))) +'\n' #formats time and temp data to save in file
 
             #saves the data to a txt file
-            with open('daqdata_2.txt', 'a') as f:
-                if os.stat('daqdata_2.txt').st_size == 0: #if the data file is empty this adds the headers
-                    f.write('Time(s),One,Two,Three,Four\n')
-                    f.write(s)
+           with open('DAQ_data.txt', 'a') as f:
+                if os.stat('DAQ_data.txt').st_size == 0: #if the data file is empty this adds the headers
+                    f.write('Time(s),STD,One,Two,Three,Four\n')
+                    f.write(temp_data)
                 else:
-                    f.write(s)
-
+                    f.write(temp_data)
+                    print('Done')
 
 
     def graph_frame(self):
         frame1 = tk.Frame(self,width=100, height=200)
         frame1.grid(row=0,column=0)
-
-#        label2 = tk.Label(frame1, text = 'Graph',font=("Helvetica", 20))
-#        label2.grid(row = 0, column = 0)
 
         canvas = FigureCanvasTkAgg(self.f, frame1)
         canvas.get_tk_widget().grid(row = 2, column = 0)
@@ -246,7 +248,7 @@ class TIM(tk.Tk):
             file = self.text_box.get()
             print('{0} {1}.csv'.format(file, file_time))
 
-            df = pd.read_table("daqdata_2.txt", delimiter=',')
+            df = pd.read_table("DAQ_data.txt", delimiter=',')
 
             #This loop looks at the Time column to determine where 10 minutes back starts with the data
             c = 1
@@ -257,7 +259,7 @@ class TIM(tk.Tk):
 
             data = df.iloc[-c:, :]
 
-            data.to_csv('{0} {1}.csv'.format(file, file_time))
+            data.to_csv('{0} {1}.csv'.format(file, file_time), index = None)
 
     def zoom_graph1(self):
         if self.zoom1 == 0:
@@ -279,10 +281,6 @@ misc = misc()
 app = TIM()
 ani = animation.FuncAnimation(app.f,animate, interval = 1000)
 
-
 app.mainloop()
 
-#daq.close_NI_RTD_DAQ()
-
-
-
+daq.close_NI_RTD_DAQ()

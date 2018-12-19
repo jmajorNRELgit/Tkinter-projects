@@ -248,6 +248,7 @@ ani = animation.FuncAnimation(app.f,animate, interval = 1000)
 app.mainloop()
 
 
-
+daq.close_NI_RTD_DAQ()
+print('Closed DAQ')
 
 
