@@ -24,6 +24,7 @@ class TIM(tk.Tk):
         def change():
             i = text.get()
             print(i)
+            print(type(i))
             self.after(1000, change)
         change()
 app = TIM()

@@ -16,13 +16,13 @@ import threading
 #import and set daq channels
 import NI_RTD_DAQ_CLASS as DAQ
 daq = DAQ.DAQ()
-daq.set_specific_channels([1,2,3,4])
+daq.set_specific_channels([5,2,3,4])
 
 #styling for the gui font and matplotlib background
 LARGE_FONT = ('Verdanna', 12)
 style.use("ggplot")
 
-
+stop = 0 #used to kill the DAQ thread once the program has been closed
 
 #Class to hold miscellaneous data
 class misc:
@@ -51,6 +51,8 @@ class misc:
 
         self.fit_list = (self.chan1_fit, self.chan2_fit, self.chan3_fit, self.chan4_fit)
 
+        self.current_maximum_temperature = []
+
 
 #funtion to create the animated plots. gets called in a loop
 def animate(i):
@@ -64,6 +66,22 @@ def animate(i):
     y4List = list(df['Four'])
     STD = list(df['STD'])
 
+    if len(y1List) > 0:
+
+        highest_temperature = [y1List[-1],y2List[-1],y3List[-1],y4List[-1]]
+        m = max(highest_temperature)
+        misc.current_maximum_temperature.append(m)
+
+    #Finds the index of the row starting 10 minutes ago
+    c = 1
+    for i in df.iloc[::-1, 0]:
+        if df.iloc[-1, 0] - i > 600:
+            break
+        c +=1
+
+
+    #print('Reading: {}'.format(str(time.time()-start)))
+
     if len(STD) > 0:
         misc.standard_deviation.append(STD[-1])
 
@@ -73,27 +91,27 @@ def animate(i):
 
     #gives the ability to zoom in on the first graph
     if app.zoom1 == 0:
-        app.ax1.plot(xList,y1List, label='Chan 1')
+        app.ax1.plot(xList,y1List, label='Chan 5')
         app.ax1.plot(xList,y2List, label='Chan 2')
         app.ax1.plot(xList,y3List, label='Chan 3')
         app.ax1.plot(xList,y4List, label='Chan 4')
         app.ax1.set_title("Temp plot")
 
     else:
-        app.ax1.plot(xList[-100:],y1List[-100:], label='Chan 1')
-        app.ax1.plot(xList[-100:],y2List[-100:], label='Chan 2')
-        app.ax1.plot(xList[-100:],y3List[-100:], label='Chan 3')
-        app.ax1.plot(xList[-100:],y4List[-100:], label='Chan 4')
+        app.ax1.plot(xList[-c:],y1List[-c:], label='Chan 5')
+        app.ax1.plot(xList[-c:],y2List[-c:], label='Chan 2')
+        app.ax1.plot(xList[-c:],y3List[-c:], label='Chan 3')
+        app.ax1.plot(xList[-c:],y4List[-c:], label='Chan 4')
         app.ax1.set_title("Temp plot zoomed")
 
-    #Finds the index of the row starting 10 minutes ago
-    c = 1
-    for i in df.iloc[::-1, 0]:
-        if df.iloc[-1, 0] - i > 600:
-            break
-        c +=1
 
-    app.ax1.plot(xList[-c:], [i +3 for i in y1List[-c:]],label='Saved data') #shows the zoom1 of the data being analized for standard deviation
+
+
+    if len(y1List) >= c:
+        app.ax1.plot(xList[-c:], [i +3 for i in misc.current_maximum_temperature[-c:]],label='Saved data') #shows the zoom1 of the data being analized for standard deviation
+    else:
+        min_length = min(len(xList), len(misc.current_maximum_temperature))
+        app.ax1.plot(xList[-min_length:], [i +3 for i in misc.current_maximum_temperature[-min_length:]],label='Saved data') #shows the zoom1 of the data being analized for standard deviation
 
 
 
@@ -115,7 +133,7 @@ def animate(i):
     app.f.tight_layout()
 
 
-
+    #print('Finished: {}'.format(str(time.time()-start)))
 
 
 class TIM(tk.Tk):
@@ -125,7 +143,7 @@ class TIM(tk.Tk):
 
     f = Figure(figsize=(10,5), dpi = 100) #creates the matplotlib figure
     ax1 = f.add_subplot(211) #adds the top plot (full time and partial time plots)
-    ax2 = f.add_subplot(212) #creates the zoomed in plot
+    ax2 = f.add_subplot(212) #STD plot
 
     zoom1 = 0 #class variable to control the zoom in funtionality of plot app.ax1
     zoom2 = 0 #class variable to control the zoom in funtionality of plot app.ax1
@@ -138,7 +156,6 @@ class TIM(tk.Tk):
 
 
         self.thread1 = threading.Thread(target=self.workerThread1)
-        self.thread1.daemon = True
         self.thread1.start(  )
 
 
@@ -146,9 +163,10 @@ class TIM(tk.Tk):
         """
         This is where we handle the asynchronous I/O.
         """
+        global stop
         temp_list = []
 
-        while True:
+        while stop == 0:
 
            temp = daq.read_specific_channels() #acquire temp from daq
 
@@ -168,7 +186,7 @@ class TIM(tk.Tk):
                     f.write(temp_data)
                 else:
                     f.write(temp_data)
-                    print('Done')
+
 
 
     def graph_frame(self):
@@ -279,8 +297,10 @@ class TIM(tk.Tk):
 
 misc = misc()
 app = TIM()
-ani = animation.FuncAnimation(app.f,animate, interval = 1000)
+ani = animation.FuncAnimation(app.f,animate, interval = 3000)
 
 app.mainloop()
 
+#stops the DAQ thread and closes the DAQ
+stop = 1
 daq.close_NI_RTD_DAQ()

@@ -3,27 +3,16 @@
 import os
 import tkinter as tk
 from tkinter import ttk
-import tk_tools
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
-from matplotlib import style
 import time
 import pandas as pd
 import numpy as np
 import threading
-import numpy as np
 
-##import and set daq channels
-#import NI_RTD_DAQ_CLASS as DAQ
-#daq = DAQ.DAQ()
-#daq.set_specific_channels([1,2,3,4])
-
-#styling for the gui font and matplotlib background
-LARGE_FONT = ('Verdanna', 12)
-style.use("ggplot")
-
-
+#used to stop the worker thread
+stop = 0
 
 #Class to hold miscellaneous data
 class misc:
@@ -40,20 +29,8 @@ class misc:
             if os.stat('daqdata_2.txt').st_size == 0: #if the data file is empty this adds the headers
                 f.write('Time(s),One,Two,Three,Four\n')
 
-
-        self.standard_deviation = []
-
-        #reads the RTD calibration coefficients and creates the functions to fit the data
-        coefficients = pd.read_csv('C:/Users/jmajor/Desktop/github/Tkinter-projects/sentdex_program/coefficient_list.csv', index_col = 0)
-        self.chan1_fit = np.poly1d(list(coefficients.iloc[:,0]))
-        self.chan2_fit = np.poly1d(list(coefficients.iloc[:,1]))
-        self.chan3_fit = np.poly1d(list(coefficients.iloc[:,2]))
-        self.chan4_fit = np.poly1d(list(coefficients.iloc[:,3]))
-
-
 #funtion to create the animated plots. gets called in a loop
 def animate(i):
-
 
     #reads the data from the text file
     df = pd.read_table("daqdata_2.txt", delimiter=',')
@@ -63,12 +40,8 @@ def animate(i):
     y3List = list(df['Three'])
     y4List = list(df['Four'])
 
-    if len(xList) > 0:
-        misc.standard_deviation.append(np.mean([np.std(y1List[-20:]),np.std(y2List[-20:]),np.std(y3List[-20:]),np.std(y4List[-20:])]))
-
     #clears the plots so we don't get multiple layers of plots
     app.ax1.clear()
-    app.ax2.clear()
 
     #gives the ability to zoom in on the first graph
     if app.zoom1 == 0:
@@ -79,80 +52,50 @@ def animate(i):
         app.ax1.set_title("Temp plot")
 
     else:
-        app.ax1.plot(xList[-100:],y1List[-100:], label='Chan 1')
-        app.ax1.plot(xList[-100:],y2List[-100:], label='Chan 2')
-        app.ax1.plot(xList[-100:],y3List[-100:], label='Chan 3')
-        app.ax1.plot(xList[-100:],y4List[-100:], label='Chan 4')
+        app.ax1.plot(xList[app.minimum:len(xList)],y1List[app.minimum:len(xList)], label='Chan 1')
+        app.ax1.plot(xList[app.minimum:len(xList)],y2List[app.minimum:len(xList)], label='Chan 2')
+        app.ax1.plot(xList[app.minimum:len(xList)],y3List[app.minimum:len(xList)], label='Chan 3')
+        app.ax1.plot(xList[app.minimum:len(xList)],y4List[app.minimum:len(xList)], label='Chan 4')
         app.ax1.set_title("Temp plot zoomed")
-    app.ax1.plot(xList[-30:], [i +3 for i in y1List[-30:]],label='STD data') #shows the zoom1 of the data being analized for standard deviation
-
-
-
-    if app.zoom2 == 0:
-        app.ax2.plot(misc.standard_deviation, label= 'STD')
-        app.ax2.set_title("STD plot")
-
-    else:
-       app.ax2.plot(xList[-50:],misc.standard_deviation[-50:], label= 'Standard deviation \n average')
-       app.ax2.set_title("STD plot zoomed")
-
-    app.ax1.set_ylabel('Temperature')
-    app.ax1.set_xlabel('Time')
-    app.ax2.set_ylabel('STD')
-    app.ax2.set_xlabel('Time')
-    app.ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    app.ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     app.f.tight_layout()
 
-
-
-
-
 class TIM(tk.Tk):
 
-    x_start = time.time() #used to create the x-axis values
+
 
 
     f = Figure(figsize=(10,5), dpi = 100) #creates the matplotlib figure
-    ax1 = f.add_subplot(211) #adds the top plot (full time and partial time plots)
-    ax2 = f.add_subplot(212) #creates the zoomed in plot
+    ax1 = f.add_subplot(111) #adds the top plot (full time and partial time plots)
+
 
     zoom1 = 0 #class variable to control the zoom in funtionality of plot app.ax1
-    zoom2 = 0 #class variable to control the zoom in funtionality of plot app.ax1
+
 
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
+
+        self.x_start = time.time() #used to create the x-axis values
 
         self.graph_frame()
         self.button_frame()
 
 
         self.thread1 = threading.Thread(target=self.workerThread1)
-        self.thread1.daemon = True
         self.thread1.start(  )
+
+        self.minimum = 0
 
 
     def workerThread1(self):
         """
-        This is where we handle the asynchronous I/O. For example, it may be
-        a 'select(  )'. One important thing to remember is that the thread has
-        to yield control pretty regularly, by select or otherwise.
+        This is where we handle the asynchronous I/O.
         """
-        while True:
-            # To simulate asynchronous I/O, we create a random number at
-            # random intervals. Replace the following two lines with the real
-            # thing.
+        global stop
+        while stop == 0:
 
-#            temp = str(daq.read_specific_channels()) #acquire temp from daq
-#            temp = temp.lstrip('[').rstrip(']').split(',') #clean up daq data
-#            s = str(round(time.time() - app.x_start,3))+','+str(misc.chan1_fit(float(temp[0])))+',' + str(misc.chan2_fit(float(temp[1])))+','+str(misc.chan3_fit(float(temp[2])))+','+str(misc.chan4_fit(float(temp[3]))) +'\n' #formats the x/y date to save into text file
-
-            time.sleep(3)
+            time.sleep(1)
             s = [round(time.time() - self.x_start,3), np.random.rand()+1, np.random.rand()+2, np.random.rand()+3, np.random.rand()+4 ]
-
-#            pattern = "%.3f"
-#            s = [pattern % i for i in s]
 
             s = str(s).lstrip('[').rstrip(']') +'\n'
 
@@ -170,22 +113,34 @@ class TIM(tk.Tk):
         frame1 = tk.Frame(self,width=100, height=200)
         frame1.grid(row=0,column=0)
 
-#        label2 = tk.Label(frame1, text = 'Graph',font=("Helvetica", 20))
-#        label2.grid(row = 0, column = 0)
-
         canvas = FigureCanvasTkAgg(self.f, frame1)
-        canvas.get_tk_widget().grid(row = 2, column = 0)
+        canvas.get_tk_widget().grid(row = 0, column = 0)
+
+        self.text1 = ttk.Entry(frame1, width=5)
+        self.text1.insert(0,'0')
+        self.text1.grid(row = 1, column = 0, sticky = 'w')
+
+        self.text2 = ttk.Entry(frame1, width=5)
+        self.text2.insert(0,'0')
+        self.text2.grid(row = 1, column = 0, sticky = 'e')
+
+        self.zoom(self.text1, self.text2)
+
+    def zoom(self, text1, text2):
 
 
-        #a numeric display of the standard deviation
-        std_display = tk.Label(self,fg="dark green")
-        std_display.grid(row = 3, column = 0, sticky = 'n')
-        self.counter_label(std_display)
+        def pri():
+            self.minimum = int(float(text1.get()))
+            print(self.minimum)
 
-        #an indicator that shows green when the standard deviation in low enough
-        led = tk_tools.Led(frame1, size=50)
-        led.grid(row = 3, column = 0, sticky = 's')
-        self.change_led(led)
+            self.maximum = int(text2.get())
+            print(self.maximum)
+
+            self.after(1000,pri)
+
+        pri()
+
+
 
 
 
@@ -196,9 +151,6 @@ class TIM(tk.Tk):
 
         graph_one_zoom_button = ttk.Button(frame2, text = 'Zoom graph one', command = self.zoom_graph1)
         graph_one_zoom_button.grid(row = 0, column = 0)
-
-        graph_two_zoom_button = ttk.Button(frame2, text = 'Zoom graph two', command = self.zoom_graph2)
-        graph_two_zoom_button.grid(row = 0, column = 1)
 
         spacer = ttk.Label(frame2, text = '' )
         spacer.grid(row = 1, column = 0)
@@ -212,33 +164,6 @@ class TIM(tk.Tk):
         self.text_box = tk.Entry(frame2,textvariable=text_field)
         self.text_box.grid(row=2, column = 1)
         self.text_box.focus_set()
-
-
-    #Displays the standard deviation
-    def counter_label(self,label):
-
-
-            def count():
-                if len(misc.standard_deviation) == 0:
-                    counter = [0.00]
-
-                else:
-                    counter = misc.standard_deviation[-1:]
-                label.config(text= 'STD: ' + str(round(counter[0],4)))
-                label.after(1000, count)
-
-            count()
-
-    #changes the color of the standard deviation indicator
-    def change_led(self, led):
-        def change():
-            if len(misc.standard_deviation) != 0 and misc.standard_deviation[-1] > .008:
-                led.to_red()
-            else:
-                led.to_green()
-            self.after(1000, change)
-
-        change()
 
     #function to save the RTD data for the past 10 minutes. saves the date and time in the filename
     def save_file(self):
@@ -256,7 +181,6 @@ class TIM(tk.Tk):
                 c +=1
 
             data = df.iloc[-c:, :]
-
             data.to_csv('{0} {1}.csv'.format(file, file_time))
 
     def zoom_graph1(self):
@@ -265,24 +189,14 @@ class TIM(tk.Tk):
         else:
             self.zoom1 = 0
 
-    def zoom_graph2(self):
-        if self.zoom2 == 0:
-            self.zoom2 = 1
-        else:
-            self.zoom2 = 0
-
-
-
-
-
 misc = misc()
 app = TIM()
+
 ani = animation.FuncAnimation(app.f,animate, interval = 1000)
 
 
 app.mainloop()
 
-#daq.close_NI_RTD_DAQ()
-
+stop = 1
 
 

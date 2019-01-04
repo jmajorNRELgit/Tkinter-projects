@@ -1,72 +1,51 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Dec 19 08:08:32 2018
 
-@author: jmajor
-"""
-
-import os
-import numpy as np
-import time
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
-x_start = time.time()
+df = pd.read_csv(r'C:/Users/jmajor/Desktop/DAQ_data.txt')
 
-import NI_RTD_DAQ_CLASS as DAQ
-daq = DAQ.DAQ()
-daq.set_specific_channels([1,2,3,4])
+df2 = df.iloc[:,2:]
 
-class misc:
-    def __init__(self):
-
-        #removes the old data log
-        try:
-            os.remove('DAQ_data.txt')
-        except:
-            pass
+ten_minute_count = 1
+for i in df.iloc[::-1, 0]:
+    if df.iloc[-1, 0] - i > 600:
+        break
+    ten_minute_count +=1
 
 
+np.std(df2.iloc[:50,0])
 
-        self.standard_deviation = []
+new_std = []
 
-        #reads the RTD calibration coefficients and creates the functions to fit the data
-        coefficients = pd.read_csv('C:/Users/jmajor/Desktop/github/Tkinter-projects/sentdex_program/coefficient_list.csv', index_col = 0)
-        self.chan1_fit = np.poly1d(list(coefficients.iloc[:,0]))
-        self.chan2_fit = np.poly1d(list(coefficients.iloc[:,1]))
-        self.chan3_fit = np.poly1d(list(coefficients.iloc[:,2]))
-        self.chan4_fit = np.poly1d(list(coefficients.iloc[:,3]))
+for i in range(len(df2.iloc[:,3])):
+    if i < ten_minute_count:
+        std = np.mean([np.std(df2.iloc[:i,0]),np.std(df2.iloc[:i,1]),np.std(df2.iloc[:i,2]),np.std(df2.iloc[:i,3])])
+        new_std.append(std)
 
-        self.fit_list = (self.chan1_fit, self.chan2_fit, self.chan3_fit, self.chan4_fit)
+    else:
+        new_std.append(np.std(df2.iloc[i-ten_minute_count:i,3]))
 
-misc = misc()
+x = range(len(new_std))
 
-temp_list = []
 
-while True:
+fig, ax1 = plt.subplots()
 
-   temp = daq.read_specific_channels() #acquire temp from daq
-
-   #fits temp data to RTD calibration curve
-   for i in range(len(misc.fit_list)):
-        temp[i] = round(misc.fit_list[i](temp[i]),3)
-
-   temp_list.append(temp)
-   standard_deviation = np.mean([np.std(temp_list[-20:]),np.std(temp_list[-20:]),np.std(temp_list[-20:]),np.std(temp_list[-20:])])
-
-   temp_data = str(round(time.time() - x_start,3)) + ','+ str(round(standard_deviation,4)) + ',' + ','.join(list(map(str,temp))) +'\n' #formats time and temp data to save in file
-
-    #saves the data to a txt file
-   with open('DAQ_data.txt', 'a') as f:
-        if os.stat('DAQ_data.txt').st_size == 0: #if the data file is empty this adds the headers
-            f.write('Time(s),STD,One,Two,Three,Four\n')
-            f.write(temp_data)
-        else:
-            f.write(temp_data)
-            print('Done')
+ax1.plot(new_std, label = 'Moving STD')
+ax1.plot(df['STD'])
+ax1.legend(loc=0)
+ax1.set_ylabel('STD')
 
 
 
+ax2 = ax1.twinx()
+ax2.plot(df2.iloc[:,0], label = "T1", color = 'red')
+ax2.plot(df2.iloc[:,1], label = "T2", color = 'black')
+ax2.plot(df2.iloc[:,2], label = "T3", color = 'green')
+ax2.plot(df2.iloc[:,3], label = "T4", color = 'yellow')
+ax2.plot(x[-ten_minute_count:],[i + .5 for i in df2.iloc[-ten_minute_count:,3]], label = "Saved Data", color = 'purple')
+ax2.set_ylabel('Temperature')
+ax2.legend()
 
 
-
-
+plt.show()
